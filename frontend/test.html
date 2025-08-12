@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscription Manager Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        input, button { padding: 10px; margin: 5px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .status-active { color: green; font-weight: bold; }
+        .status-inactive { color: orange; font-weight: bold; }
+        .status-cancelled { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Subscription Manager - Frontend Test</h1>
+        
+        <h2>1. Login Test</h2>
+        <div class="form-group">
+            <input type="email" id="email" placeholder="Email" value="test@test.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="register()">Register</button>
+            <button onclick="login()">Login</button>
+        </div>
+        
+        <h2>2. Get Subscriptions</h2>
+        <button onclick="getSubscriptions()">Get Subscriptions</button>
+        
+        <h2>3. Add Subscription</h2>
+        <div class="form-group">
+            <input type="text" id="planName" placeholder="Plan Name" value="">
+            <input type="number" id="price" placeholder="Price" value="">
+            <select id="planStatus">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <button onclick="addSubscription()">Add Subscription</button>
+            <button onclick="clearForm()" style="background: #6c757d;">Clear Form</button>
+        </div>
+        
+        <h3>Quick Add Templates:</h3>
+        <div class="form-group">
+            <button onclick="addTemplate('Basic Plan', 9.99)">Add Basic ($9.99)</button>
+            <button onclick="addTemplate('Premium Plan', 19.99)">Add Premium ($19.99)</button>
+            <button onclick="addTemplate('Enterprise Plan', 49.99)">Add Enterprise ($49.99)</button>
+            <button onclick="addTemplate('Pro Plan', 29.99)">Add Pro ($29.99)</button>
+            <button onclick="addTemplate('Starter Plan', 4.99)">Add Starter ($4.99)</button>
+        </div>
+        
+        <h2>4. Update Subscription</h2>
+        <div class="form-group">
+            <input type="number" id="updateId" placeholder="Subscription ID" value="1">
+            <input type="text" id="updatePlan" placeholder="New Plan Name" value="Updated Plan">
+            <input type="number" id="updatePrice" placeholder="New Price" value="39.99">
+            <select id="updateStatus">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <button onclick="updateSubscription()">Update Subscription</button>
+        </div>
+        
+        <h2>5. Delete Subscription</h2>
+        <div class="form-group">
+            <input type="number" id="deleteId" placeholder="Subscription ID" value="1">
+            <button onclick="deleteSubscription()" style="background: #dc3545;">Delete Subscription</button>
+        </div>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const API_URL = 'http://localhost:3000/api';
+        
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, phone: '+1234567890' })
+                });
+                
+                const data = await response.json();
+                showResult('Register result: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('Register error: ' + error.message);
+            }
+        }
+        
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                if (data.token) {
+                    authToken = data.token;
+                    showResult('Login successful! Token: ' + data.token.substring(0, 20) + '...');
+                } else {
+                    showResult('Login failed: ' + data.error);
+                }
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        async function getSubscriptions() {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                displaySubscriptionsTable(data);
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        async function addSubscription() {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            const plan_name = document.getElementById('planName').value;
+            const price = document.getElementById('price').value;
+            const status = document.getElementById('planStatus').value;
+            
+            if (!plan_name || !price) {
+                showResult('Please fill in plan name and price');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name, price: parseFloat(price), status })
+                });
+                
+                const data = await response.json();
+                showResult('Subscription added: ' + JSON.stringify(data, null, 2));
+                clearForm();
+                getSubscriptions(); // Refresh list
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        function clearForm() {
+            document.getElementById('planName').value = '';
+            document.getElementById('price').value = '';
+            document.getElementById('planStatus').value = 'active';
+        }
+        
+        async function addTemplate(planName, price) {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name: planName, price: price, status: 'active' })
+                });
+                
+                const data = await response.json();
+                showResult(`${planName} added successfully!`);
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        async function updateSubscription() {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            const id = document.getElementById('updateId').value;
+            const plan_name = document.getElementById('updatePlan').value;
+            const price = document.getElementById('updatePrice').value;
+            const status = document.getElementById('updateStatus').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name, price: parseFloat(price), status })
+                });
+                
+                const data = await response.json();
+                showResult('Subscription updated: ' + JSON.stringify(data, null, 2));
+                getSubscriptions(); // Refresh list
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        async function deleteSubscription() {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            const id = document.getElementById('deleteId').value;
+            
+            if (!confirm(`Are you sure you want to delete subscription ${id}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                showResult('Subscription deleted: ' + JSON.stringify(data, null, 2));
+                getSubscriptions(); // Refresh list
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        function showResult(message) {
+            document.getElementById('result').innerHTML = '<pre>' + message + '</pre>';
+        }
+        
+        function displaySubscriptionsTable(subscriptions) {
+            if (!subscriptions || subscriptions.length === 0) {
+                showResult('No subscriptions found');
+                return;
+            }
+            
+            let tableHTML = `
+                <h3>Subscriptions</h3>
+                <table>
+                    <tr>
+                        <th>ID</th>
+                        <th>Plan Name</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th>User Email</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Actions</th>
+                    </tr>`;
+            
+            subscriptions.forEach(sub => {
+                tableHTML += `
+                    <tr>
+                        <td>${sub.id}</td>
+                        <td>${sub.plan_name}</td>
+                        <td><span class="status-${sub.status}">${sub.status}</span></td>
+                        <td>$${sub.price}</td>
+                        <td>${sub.user_email || 'N/A'}</td>
+                        <td>${new Date(sub.start_date).toLocaleDateString()}</td>
+                        <td>${sub.end_date ? new Date(sub.end_date).toLocaleDateString() : 'N/A'}</td>
+                        <td>
+                            <button onclick="editSubscription(${sub.id}, '${sub.plan_name}', ${sub.price}, '${sub.status}')" style="background: #28a745; padding: 5px; margin: 2px;">Edit</button>
+                            <button onclick="quickDelete(${sub.id})" style="background: #dc3545; padding: 5px; margin: 2px;">Delete</button>
+                        </td>
+                    </tr>`;
+            });
+            
+            tableHTML += '</table>';
+            document.getElementById('result').innerHTML = tableHTML;
+        }
+        
+        function editSubscription(id, planName, price, status) {
+            document.getElementById('updateId').value = id;
+            document.getElementById('updatePlan').value = planName;
+            document.getElementById('updatePrice').value = price;
+            document.getElementById('updateStatus').value = status;
+            alert('Form filled with subscription data. Click Update Subscription button.');
+        }
+        
+        async function quickDelete(id) {
+            if (!authToken) {
+                showResult('Please login first');
+                return;
+            }
+            
+            if (!confirm(`Delete subscription ${id}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                showResult('Deleted: ' + JSON.stringify(data, null, 2));
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

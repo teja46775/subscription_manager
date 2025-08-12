@@ -1,0 +1,59 @@
+<div class="form-container">
+  <form [formGroup]="subscriptionForm" (ngSubmit)="onSubmit()" class="subscription-form">
+    <h2>{{ isEditMode ? 'Edit' : 'Add' }} Subscription</h2>
+    
+    <div class="form-group">
+      <label for="plan_name">Plan Name:</label>
+      <input 
+        type="text" 
+        id="plan_name" 
+        formControlName="plan_name"
+        [class.error]="getFieldError('plan_name')"
+      >
+      <div class="error-message">{{ getFieldError('plan_name') }}</div>
+    </div>
+
+    <div class="form-group">
+      <label for="status">Status:</label>
+      <select id="status" formControlName="status">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="price">Price:</label>
+      <input 
+        type="number" 
+        id="price" 
+        formControlName="price"
+        step="0.01"
+        [class.error]="getFieldError('price')"
+      >
+      <div class="error-message">{{ getFieldError('price') }}</div>
+    </div>
+
+    <div class="form-group">
+      <label for="end_date">End Date (Optional):</label>
+      <input 
+        type="datetime-local" 
+        id="end_date" 
+        formControlName="end_date"
+      >
+    </div>
+
+    <div class="error-message" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <div class="form-actions">
+      <button 
+        type="submit" 
+        [disabled]="subscriptionForm.invalid || isLoading"
+        class="submit-btn"
+      >
+        {{ isLoading ? 'Saving...' : (isEditMode ? 'Update' : 'Create') }}
+      </button>
+      <button type="button" (click)="cancel()" class="cancel-btn">Cancel</button>
+    </div>
+  </form>
+</div>

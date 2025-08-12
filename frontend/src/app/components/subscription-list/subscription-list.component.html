@@ -1,0 +1,81 @@
+<div class="subscription-container">
+  <div class="header">
+    <h2>Subscription Manager</h2>
+    <button (click)="logout()" class="logout-btn">Logout</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label for="statusFilter">Status:</label>
+      <select id="statusFilter" [(ngModel)]="statusFilter" (change)="onStatusFilterChange()">
+        <option value="">All</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="planFilter">Plan Name:</label>
+      <input 
+        type="text" 
+        id="planFilter" 
+        [(ngModel)]="planFilter" 
+        (input)="onPlanFilterChange()"
+        placeholder="Search plans..."
+      >
+    </div>
+
+    <button routerLink="/subscription/new" class="add-btn">Add Subscription</button>
+  </div>
+
+  <div class="error-message" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div *ngIf="isLoading" class="loading">Loading...</div>
+
+  <table *ngIf="!isLoading" class="subscription-table">
+    <thead>
+      <tr>
+        <th>Plan Name</th>
+        <th>Status</th>
+        <th>Price</th>
+        <th>User Email</th>
+        <th>Start Date</th>
+        <th>End Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let subscription of filteredSubscriptions">
+        <td>{{ subscription.plan_name }}</td>
+        <td>
+          <span [class]="'status-' + subscription.status">
+            {{ subscription.status }}
+          </span>
+        </td>
+        <td>${{ subscription.price }}</td>
+        <td>{{ subscription.user_email }}</td>
+        <td>{{ subscription.start_date | date:'short' }}</td>
+        <td>{{ subscription.end_date ? (subscription.end_date | date:'short') : 'N/A' }}</td>
+        <td>
+          <button 
+            [routerLink]="['/subscription/edit', subscription.id]" 
+            class="edit-btn"
+          >
+            Edit
+          </button>
+          <button 
+            (click)="deleteSubscription(subscription.id)" 
+            class="delete-btn"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="!isLoading && filteredSubscriptions.length === 0" class="no-data">
+    No subscriptions found.
+  </div>
+</div>

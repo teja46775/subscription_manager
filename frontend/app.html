@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscription Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .login-form { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 400px; }
+        .dashboard { display: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: white; padding: 20px; border-radius: 8px; }
+        .form-group { margin: 15px 0; }
+        input, select, button { padding: 12px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        .btn-danger { background: #dc3545; }
+        .btn-success { background: #28a745; }
+        .btn-secondary { background: #6c757d; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #007bff; color: white; }
+        .status-active { color: green; font-weight: bold; }
+        .status-inactive { color: orange; font-weight: bold; }
+        .status-cancelled { color: red; font-weight: bold; }
+        .section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .templates button { margin: 5px; padding: 8px 12px; }
+        .result { background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; flex: 1; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; margin: 10px 0; }
+        .stat-active { color: #28a745; }
+        .stat-inactive { color: #ffc107; }
+        .stat-cancelled { color: #dc3545; }
+        .date-info { font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-page">
+        <div class="login-form">
+            <h2>Login to Subscription Manager</h2>
+            <div class="form-group">
+                <input type="email" id="email" placeholder="Email" value="test@test.com" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="Password" value="password123" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <button onclick="login()" style="width: 100%;">Login</button>
+            </div>
+            <div class="form-group">
+                <button onclick="register()" class="btn-secondary" style="width: 100%;">Register New Account</button>
+            </div>
+            <div id="loginResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard" class="dashboard">
+        <div class="container">
+            <div class="header">
+                <h1>Subscription Manager</h1>
+                <button onclick="logout()" class="btn-danger">Logout</button>
+            </div>
+
+            <!-- Statistics -->
+            <div id="statsSection" class="stats"></div>
+            
+            <!-- View Subscriptions -->
+            <div class="section">
+                <h3>All Subscriptions</h3>
+                <button onclick="getSubscriptions()">Refresh Subscriptions</button>
+                <div id="subscriptionsTable"></div>
+            </div>
+
+            <!-- Add Subscription -->
+            <div class="section">
+                <h3>Add New Subscription</h3>
+                <div class="form-group">
+                    <input type="text" id="planName" placeholder="Plan Name">
+                    <input type="number" id="price" placeholder="Price" step="0.01">
+                    <select id="planStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button onclick="addSubscription()" class="btn-success">Add Subscription</button>
+                    <button onclick="clearForm()" class="btn-secondary">Clear</button>
+                </div>
+                
+                <div class="templates">
+                    <strong>Quick Add:</strong>
+                    <button onclick="addTemplate('Basic Plan', 9.99)" class="btn-success">Basic $9.99</button>
+                    <button onclick="addTemplate('Premium Plan', 19.99)" class="btn-success">Premium $19.99</button>
+                    <button onclick="addTemplate('Enterprise Plan', 49.99)" class="btn-success">Enterprise $49.99</button>
+                    <button onclick="addTemplate('Pro Plan', 29.99)" class="btn-success">Pro $29.99</button>
+                </div>
+            </div>
+
+            <!-- Update Subscription -->
+            <div class="section">
+                <h3>Update Subscription</h3>
+                <div class="form-group">
+                    <input type="number" id="updateId" placeholder="Subscription ID">
+                    <input type="text" id="updatePlan" placeholder="New Plan Name">
+                    <input type="number" id="updatePrice" placeholder="New Price" step="0.01">
+                    <select id="updateStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button onclick="updateSubscription()">Update Subscription</button>
+                </div>
+            </div>
+
+            <!-- Delete Subscription -->
+            <div class="section">
+                <h3>Delete Subscription</h3>
+                <div class="form-group">
+                    <input type="number" id="deleteId" placeholder="Subscription ID">
+                    <button onclick="deleteSubscription()" class="btn-danger">Delete Subscription</button>
+                </div>
+            </div>
+
+            <div id="result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const API_URL = 'http://localhost:3000/api';
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, phone: '+1234567890' })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showLoginResult('Account created! Auto-logging in...');
+                    setTimeout(() => login(), 1000);
+                } else {
+                    showLoginResult('Register error: ' + data.error);
+                }
+            } catch (error) {
+                showLoginResult('Register error: ' + error.message);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            showLoginResult('Logging in...');
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                console.log('Login response:', data);
+                
+                if (data.token) {
+                    authToken = data.token;
+                    showDashboard();
+                    getSubscriptions();
+                } else {
+                    showLoginResult('Login failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showLoginResult('Connection error: ' + error.message);
+                console.error('Login error:', error);
+            }
+        }
+
+        function logout() {
+            authToken = '';
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+        }
+
+        function showLoginResult(message) {
+            const result = document.getElementById('loginResult');
+            result.innerHTML = message;
+            result.style.display = 'block';
+        }
+
+        async function getSubscriptions() {
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                displayStatistics(data);
+                displaySubscriptionsTable(data);
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+        
+        function displayStatistics(subscriptions) {
+            const stats = {
+                active: subscriptions.filter(s => s.status === 'active').length,
+                inactive: subscriptions.filter(s => s.status === 'inactive').length,
+                cancelled: subscriptions.filter(s => s.status === 'cancelled').length,
+                total: subscriptions.length
+            };
+            
+            const statsHTML = `
+                <div class="stat-card">
+                    <h4>Active</h4>
+                    <div class="stat-number stat-active">${stats.active}</div>
+                    <div>Subscriptions</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Inactive</h4>
+                    <div class="stat-number stat-inactive">${stats.inactive}</div>
+                    <div>Subscriptions</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Cancelled</h4>
+                    <div class="stat-number stat-cancelled">${stats.cancelled}</div>
+                    <div>Subscriptions</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total</h4>
+                    <div class="stat-number">${stats.total}</div>
+                    <div>Subscriptions</div>
+                </div>
+            `;
+            
+            document.getElementById('statsSection').innerHTML = statsHTML;
+        }
+        
+        function displaySubscriptionsTable(subscriptions) {
+            const container = document.getElementById('subscriptionsTable');
+            
+            if (!subscriptions || subscriptions.length === 0) {
+                container.innerHTML = '<p>No subscriptions found</p>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table>
+                    <tr>
+                        <th>ID</th>
+                        <th>Plan Name</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th>User Email</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Duration</th>
+                        <th>Actions</th>
+                    </tr>`;
+            
+            subscriptions.forEach(sub => {
+                const startDate = new Date(sub.start_date);
+                const endDate = sub.end_date ? new Date(sub.end_date) : null;
+                const duration = endDate ? 
+                    Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + ' days' : 
+                    'Ongoing';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${sub.id}</td>
+                        <td><strong>${sub.plan_name}</strong></td>
+                        <td><span class="status-${sub.status}">${sub.status.toUpperCase()}</span></td>
+                        <td><strong>$${sub.price}</strong></td>
+                        <td>${sub.user_email || 'N/A'}</td>
+                        <td>
+                            <div>${startDate.toLocaleDateString()}</div>
+                            <div class="date-info">${startDate.toLocaleTimeString()}</div>
+                        </td>
+                        <td>
+                            <div>${endDate ? endDate.toLocaleDateString() : 'No End Date'}</div>
+                            <div class="date-info">${endDate ? endDate.toLocaleTimeString() : 'Active'}</div>
+                        </td>
+                        <td><strong>${duration}</strong></td>
+                        <td>
+                            <button onclick="editSubscription(${sub.id}, '${sub.plan_name}', ${sub.price}, '${sub.status}')" class="btn-success" style="padding: 5px; margin: 2px;">Edit</button>
+                            <button onclick="quickDelete(${sub.id})" class="btn-danger" style="padding: 5px; margin: 2px;">Delete</button>
+                        </td>
+                    </tr>`;
+            });
+            
+            tableHTML += '</table>';
+            container.innerHTML = tableHTML;
+        } await response.json();
+                displaySubscriptionsTable(data);
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        async function addSubscription() {
+            const plan_name = document.getElementById('planName').value;
+            const price = document.getElementById('price').value;
+            const status = document.getElementById('planStatus').value;
+            
+            if (!plan_name || !price) {
+                showResult('Please fill in plan name and price');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name, price: parseFloat(price), status })
+                });
+                
+                const data = await response.json();
+                showResult('Subscription added successfully!');
+                clearForm();
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        async function updateSubscription() {
+            const id = document.getElementById('updateId').value;
+            const plan_name = document.getElementById('updatePlan').value;
+            const price = document.getElementById('updatePrice').value;
+            const status = document.getElementById('updateStatus').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name, price: parseFloat(price), status })
+                });
+                
+                const data = await response.json();
+                showResult('Subscription updated successfully!');
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        async function deleteSubscription() {
+            const id = document.getElementById('deleteId').value;
+            
+            if (!confirm(`Delete subscription ${id}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                showResult('Subscription deleted successfully!');
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        async function addTemplate(planName, price) {
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ plan_name: planName, price: price, status: 'active' })
+                });
+                
+                showResult(`${planName} added successfully!`);
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('planName').value = '';
+            document.getElementById('price').value = '';
+            document.getElementById('planStatus').value = 'active';
+        }
+
+        function displaySubscriptionsTable(subscriptions) {
+            const container = document.getElementById('subscriptionsTable');
+            
+            if (!subscriptions || subscriptions.length === 0) {
+                container.innerHTML = '<p>No subscriptions found</p>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table>
+                    <tr>
+                        <th>ID</th>
+                        <th>Plan Name</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th>User Email</th>
+                        <th>Start Date</th>
+                        <th>Actions</th>
+                    </tr>`;
+            
+            subscriptions.forEach(sub => {
+                tableHTML += `
+                    <tr>
+                        <td>${sub.id}</td>
+                        <td>${sub.plan_name}</td>
+                        <td><span class="status-${sub.status}">${sub.status}</span></td>
+                        <td>$${sub.price}</td>
+                        <td>${sub.user_email || 'N/A'}</td>
+                        <td>${new Date(sub.start_date).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="editSubscription(${sub.id}, '${sub.plan_name}', ${sub.price}, '${sub.status}')" class="btn-success" style="padding: 5px;">Edit</button>
+                            <button onclick="quickDelete(${sub.id})" class="btn-danger" style="padding: 5px;">Delete</button>
+                        </td>
+                    </tr>`;
+            });
+            
+            tableHTML += '</table>';
+            container.innerHTML = tableHTML;
+        }
+
+        function editSubscription(id, planName, price, status) {
+            document.getElementById('updateId').value = id;
+            document.getElementById('updatePlan').value = planName;
+            document.getElementById('updatePrice').value = price;
+            document.getElementById('updateStatus').value = status;
+            showResult('Form filled with subscription data. Click Update button.');
+        }
+
+        async function quickDelete(id) {
+            if (!confirm(`Delete subscription ${id}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                showResult('Subscription deleted!');
+                getSubscriptions();
+            } catch (error) {
+                showResult('Error: ' + error.message);
+            }
+        }
+
+        function showResult(message) {
+            document.getElementById('result').innerHTML = message;
+        }
+    </script>
+</body>
+</html>
